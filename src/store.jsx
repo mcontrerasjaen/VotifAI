@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer } from 'react';
 
-// 1. ESTADO INICIAL
+// 1. ESTADO INICIAL CON CENSO DE 20 VECINOS
 const initialState = {
   tenant: (() => {
     const saved = localStorage.getItem('votifai_tenant');
@@ -8,7 +8,21 @@ const initialState = {
   })()
 };
 
-// 2. EL REDUCER (Flujo clásico basado en Acciones)
+// Simulador de generación de censo legal de 20 propietarios de España
+const generarCenso20Propietarios = () => {
+  const nombres = ["Manuel Contreras", "Carmen Ortiz", "Juan Pérez", "Ana Gómez", "Carlos Ruiz", "María José", "David León", "Laura Sanz", "Antonio López", "Elena G.", "Francisco B.", "Lucia M.", "Javier P.", "Isabel D.", "Miguel A.", "Sonia V.", "Pedro C.", "Nuria F.", "Diego R.", "Raquel H."];
+  return Array.from({ length: 20 }, (_, i) => ({
+    id: `vtr_${i + 1}`,
+    nombre: nombres[i] || `Propietario Vecino ${i + 1}`,
+    propiedad: `Piso ${Math.floor(i / 4) + 1}º${["A", "B", "C", "D"][i % 4]}`,
+    email: `${(nombres[i] || `vecino${i+1}`).toLowerCase().replace(/ /g, '')}@correo.com`,
+    telefono: `+34 6${Math.floor(10000000 + Math.random() * 90000000)}`,
+    coeficiente: (5.00).toFixed(2), // 5% equitativo cada uno para la demo (Suma 100%)
+    estadoVoto: 'pendiente'
+  }));
+};
+
+// 2. EL REDUCER
 function votifaiReducer(state, action) {
   switch (action.type) {
     case 'REGISTRAR_ORGANIZACION': {
@@ -22,11 +36,12 @@ function votifaiReducer(state, action) {
         fechaRegistro: new Date().toISOString(),
         comunidadesYEmpresas: [
           { 
-            id: `ent_${Math.random().toString(36).substr(2, 9)}`, 
-            nombre: `${datos.nombreEntidad} - Sede Inicial`, 
+            id: `ent_castellana`, 
+            nombre: datos.tipoOrganizacion === 'administrador' ? `C.P. ${datos.nombreEntidad}` : datos.nombreEntidad, 
             tipo: datos.tipoOrganizacion === 'administrador' ? 'comunidad' : 'empresa', 
-            ubicacion: 'Principal', 
-            estado: 'Configuración inicial' 
+            ubicacion: 'Sede Central', 
+            estado: 'Configuración inicial',
+            propietarios: generarCenso20Propietarios() // <-- Inyectamos los 20 propietarios reales aquí
           }
         ]
       };
@@ -41,9 +56,9 @@ function votifaiReducer(state, action) {
         id: `ent_${Math.random().toString(36).substr(2, 9)}`,
         nombre: nuevaEntidad.nombre,
         tipo: nuevaEntidad.tipo,
-        ubicacion: nuevaEntidad.ubicacion || 'No especificada',
+        ubicacion: nuevaEntidad.ubicacion || 'Sede Local',
         estado: 'Creada - Sin juntas activas',
-        color: nuevaEntidad.tipo === 'comunidad' ? 'border-blue-500/30 text-blue-400' : 'border-indigo-500/30 text-indigo-400'
+        propietarios: generarCenso20Propietarios()
       };
       const tenantActualizado = {
         ...state.tenant,
@@ -62,12 +77,10 @@ function votifaiReducer(state, action) {
   }
 }
 
-// 3. CONTEXTO DE DISTRIBUCIÓN
 const StoreContext = createContext(null);
 
 export function StoreProvider({ children }) {
   const [state, dispatch] = useReducer(votifaiReducer, initialState);
-
   return (
     <StoreContext.Provider value={{ state, dispatch }}>
       {children}
@@ -75,7 +88,6 @@ export function StoreProvider({ children }) {
   );
 }
 
-// 4. HOOK MAESTRO
 export function useVotifaiStore() {
   return useContext(StoreContext);
 }

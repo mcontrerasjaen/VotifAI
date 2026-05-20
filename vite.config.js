@@ -5,12 +5,15 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [
     react(),
-    tailwindcss(), // Inyecta el motor de Tailwind v4 de forma nativa
+    tailwindcss(),
   ],
   server: {
-    host: '0.0.0.0',    // Abre la escucha en el contenedor Linux
+    host: '0.0.0.0',
     port: 5173,
     strictPort: true,
-    allowedHosts: true, // Evita los bloqueos de host de GitHub
+    allowedHosts: true,
+  },
+  optimizeDeps: {
+    include: ['react-apexcharts', 'apexcharts']
   }
 })
