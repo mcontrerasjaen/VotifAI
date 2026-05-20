@@ -37,25 +37,60 @@ export default function Register() {
   const [titularCuenta, setTitularCuenta] = useState('');
   const [iban, setIban] = useState('');
 
-  const handleSiguientePaso = (e) => {
+  const handleSiguientePaso = async (e) => {
     e.preventDefault();
     if (paso < 3) {
       setPaso(paso + 1);
     } else {
-      dispatch({
-        type: 'REGISTRAR_ORGANIZACION',
-        payload: {
-          tipoOrganizacion,
-          nombreEntidad: tipoOrganizacion === 'empresa' ? razonSocial : nombreComunidad,
-          email,
-          plan: 'trial_15_dias',
-          metadatosFiscales: { cifEmpresa, cifComunidad, direccionEmpresa, direccionComunidad, administradores, nombreAdminFincas, nombrePresidente, sector, capitalSocial, numAcciones, regimenMayoria, totalPropiedades, recargoMora },
-          banco: { titularCuenta, iban }
+      // 📦 Estructuramos el objeto completo para enviarlo a la API de Node.js
+      const payload = {
+        tipoOrganizacion,
+        nombreEntidad: tipoOrganizacion === 'empresa' ? razonSocial : nombreComunidad,
+        email,
+        plan: 'trial_15_dias',
+        metadatosFiscales: tipoOrganizacion === 'empresa' 
+          ? { cifEmpresa, direccionEmpresa, administradores, sector, capitalSocial, numAcciones, regimenMayoria }
+          : { nombreAdminFincas, nombreComunidad, cifComunidad, direccionComunidad, nombrePresidente, totalPropiedades, recargoMora },
+        banco: { titularCuenta, iban }
+      };
+
+      try {
+        // Disparamos la petición HTTP POST hacia el servidor Express local
+        const respuesta = await fetch('https://redesigned-garbanzo-q75qxq4xjp7jh9xq-3000.app.github.dev/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const resultado = await respuesta.json();
+
+        if (!respuesta.ok) {
+          alert(resultado.error || 'Fallo al procesar la inserción en pgAdmin.');
+          return;
         }
-      });
-      navigate('/hub');
+
+        // Si el servidor responde con éxito (Status 201), actualizamos el store y avanzamos
+        dispatch({
+          type: 'REGISTRAR_ORGANIZACION',
+          payload: {
+            tipoOrganizacion,
+            nombreEntidad: tipoOrganizacion === 'empresa' ? razonSocial : nombreComunidad,
+            email,
+            plan: 'trial_15_dias',
+            metadatosFiscales: payload.metadatosFiscales,
+            banco: payload.banco
+          }
+        });
+
+        navigate('/hub');
+
+      } catch (error) {
+        console.error('Error de red al conectar con el backend:', error);
+        alert('Error: No se pudo conectar con el servidor backend en el puerto 3000. Verifica que node index.js esté corriendo.');
+      }
     }
   };
+
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col lg:flex-row font-sans antialiased overflow-hidden">

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer } from 'react';
 
-// 1. ESTADO INICIAL CON CENSO DE 20 VECINOS
+// 1. ESTADO INICIAL COMPATIBLE CON PERSISTENCIA LOCAL
 const initialState = {
   tenant: (() => {
     const saved = localStorage.getItem('votifai_tenant');
@@ -22,29 +22,31 @@ const generarCenso20Propietarios = () => {
   }));
 };
 
-// 2. EL REDUCER
+// 2. EL REDUCER CENTRAL DE ACCIONES RELACIONALES
 function votifaiReducer(state, action) {
   switch (action.type) {
     case 'REGISTRAR_ORGANIZACION': {
-      const datos = action.payload;
+      // 🔌 El payload ahora es directamente el objeto Tenant validado y guardado por PostgreSQL
+      const datosServidor = action.payload;
+      
       const nuevoTenant = {
-        tenantId: `tenant_${Math.random().toString(36).substr(2, 9)}`,
-        nombreEntidad: datos.nombreEntidad,
-        email: datos.email,
-        tipoOrganizacion: datos.tipoOrganizacion,
-        plan: datos.plan,
-        fechaRegistro: new Date().toISOString(),
+        tenantId: datosServidor.id,
+        nombreEntidad: datosServidor.nombre_entidad,
+        email: datosServidor.email_maestro,
+        tipoOrganizacion: datosServidor.tipo_organizacion,
+        plan: datosServidor.plan_suscripcion,
         comunidadesYEmpresas: [
           { 
             id: `ent_castellana`, 
-            nombre: datos.tipoOrganizacion === 'administrador' ? `C.P. ${datos.nombreEntidad}` : datos.nombreEntidad, 
-            tipo: datos.tipoOrganizacion === 'administrador' ? 'comunidad' : 'empresa', 
+            nombre: datosServidor.tipo_organizacion === 'administrador' ? `C.P. ${datosServidor.nombre_entidad}` : datosServidor.nombre_entidad, 
+            tipo: datosServidor.tipo_organizacion === 'administrador' ? 'comunidad' : 'empresa', 
             ubicacion: 'Sede Central', 
-            estado: 'Configuración inicial',
-            propietarios: generarCenso20Propietarios() // <-- Inyectamos los 20 propietarios reales aquí
+            estado: 'Junta Programada — HOY 18:00',
+            propietarios: generarCenso20Propietarios() // Acoplamos los 20 propietarios locales al Hub
           }
         ]
       };
+      
       localStorage.setItem('votifai_tenant', JSON.stringify(nuevoTenant));
       return { ...state, tenant: nuevoTenant };
     }
