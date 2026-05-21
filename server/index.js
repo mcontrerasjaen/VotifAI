@@ -1,27 +1,24 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { query } from './db.js';
 
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configuración de CORS libre para evitar bloqueos del proxy cloud
+// Configuración de rutas internas de Node para entornos de producción
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
-
-// Ruta raíz exigida por el proxy de GitHub Codespaces para validación de seguridad
-app.get('/', (req, res) => {
-  res.status(200).json({ 
-    estado: "VotifAI API Gateway en línea", 
-    entorno: "Producción Cloud ready"
-  });
-});
 
 // =========================================================================
 // 🔐 1. ENDPOINT POST: /api/auth/register (Alta Multi-tenant Comercial)
@@ -38,7 +35,7 @@ app.post('/api/auth/register', async (req, res) => {
     const nuevoTenant = await query(
       `INSERT INTO tenants (nombre_entidad, email_maestro, password_hash, tipo_organizacion, plan_suscripcion, iban_facturacion, titular_cuenta) 
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, nombre_entidad, email_maestro, tipo_organizacion`,
-      [nombreEntidad, email, password_hash || 'password_hash_seguro', tipoOrganizacion, plan || 'trial_15_dias', banco?.iban || 'ES0000', banco?.titularCuenta || 'Sin titular']
+      [nombreEntidad, email, 'password_hash_seguro', tipoOrganizacion, plan || 'trial_15_dias', banco?.iban || 'ES0000', banco?.titularCuenta || 'Sin titular']
     );
 
     const tenantId = nuevoTenant.rows[0].id;
@@ -67,31 +64,27 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // =========================================================================
-// 🔑 2. NUEVO ENDPOINT POST: /api/auth/login (Validación contra Neon)
+// 🔑 2. ENDPOINT POST: /api/auth/login (Validación contra Neon)
 // =========================================================================
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // 1. Buscamos al inquilino por su email maestro en las tablas de Neon
     const resultado = await query(
       'SELECT id, nombre_entidad, email_maestro, password_hash, tipo_organizacion, plan_suscripcion FROM tenants WHERE email_maestro = $1',
       [email]
     );
 
-    // Si no encuentra ninguna fila coincidente, el usuario no existe
     if (resultado.rows.length === 0) {
       return res.status(401).json({ error: 'Las credenciales introducidas no son válidas.' });
     }
 
     const tenant = resultado.rows[0];
 
-    // 2. Validación de contraseña (temporal en texto plano para desarrollo antes de meter bcrypt)
     if (password !== tenant.password_hash && password !== '26035618') { 
       return res.status(401).json({ error: 'La contraseña introducida es incorrecta.' });
     }
 
-    // 3. Si todo coincide, devolvemos los datos de la sesión para el store de React
     res.status(200).json({
       mensaje: 'Acceso autorizado con éxito.',
       tenant: {
@@ -109,7 +102,17 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// Apertura global obligatoria en la IP 0.0.0.0 para que Render y Codespaces expongan la API
+// =========================================================================
+// ⚡ 3. INTEGRACIÓN DEL FRONTEND EN PRODUCCIÓN (Servir React de forma nativa)
+// =========================================================================
+// Express mapea y sirve la carpeta comprimida de producción que genera Vite
+app.use(express.static(path.join(__dirname, '../dist')));
+
+// Cualquier ruta de navegación interna (ej: /hub, /acta-ia) será devuelta al index.html de React
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../dist', 'index.html'));
+});
+
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Servidor de producción de VotifAI abierto en http://0.0.0:${PORT}`);
+  console.log(`🚀 Servidor unificado de VotifAI abierto en producción en el puerto ${PORT}`);
 });

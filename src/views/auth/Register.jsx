@@ -56,7 +56,7 @@ export default function Register() {
 
       try {
         // Disparamos la petición HTTP POST hacia el servidor Express local
-        const respuesta = await fetch('https://redesigned-garbanzo-q75qxq4xjp7jh9xq-3000.app.github.dev/api/auth/register', {
+        const respuesta = await fetch('https://votifai-core-api.onrender.com', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
