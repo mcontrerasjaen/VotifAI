@@ -114,5 +114,5 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Servidor unificado de VotifAI abierto en producción en el puerto ${PORT}`);
+  console.log(`🚀 Servidor unificado de VotifAI abierto en RED GLOBAL en el puerto ${PORT}`);
 });
