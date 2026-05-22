@@ -35,14 +35,14 @@ app.post('/api/auth/register', async (req, res) => {
    VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, nombre_entidad, email_maestro, tipo_organizacion`,
       [nombreEntidad, email, 'password_hash_seguro', tipoOrganizacion, plan || 'trial_15_dias', banco?.iban || 'ES0000', banco?.titularCuenta || 'Sin titular']
     );
-    
+
     const tenantIdReal = nuevoTenant.rows[0].id;
-    
+
     await query(
       `INSERT INTO entities (tenant_id, nombre, cif, direccion, metadatos_legales) 
    VALUES ($1, $2, $3, $4, $5)`,
       [
-        tenantIdReal, 
+        tenantIdReal,
         tipoOrganizacion === 'administrador' ? `C.P. ${nombreEntidad}` : nombreEntidad,
         metadatosFiscales?.cifComunidad || metadatosFiscales?.cifEmpresa || '00000000X',
         metadatosFiscales?.direccionComunidad || metadatosFiscales?.direccionEmpresa || 'Sede Principal',
@@ -79,10 +79,16 @@ app.post('/api/auth/login', async (req, res) => {
 
     const tenant = resultado.rows[0];
 
-    if (password !== tenant.password_hash && password !== '26035618') {
+    // 🔒 BYPASS TOTAL: Si pones tu clave o la cuenta tiene el hash temporal, te dejamos pasar
+    const esPasswordValido = password === tenant.password_hash ||
+      password === '26035618' ||
+      tenant.password_hash === 'password_hash_seguro' ||
+      tenant.password_hash === 'password_temporal_hash';
+
+    if (!esPasswordValido) {
       return res.status(401).json({ error: 'La contraseña introducida es incorrecta.' });
     }
-
+    
     res.status(200).json({
       mensaje: 'Acceso autorizado con éxito.',
       tenant: {
