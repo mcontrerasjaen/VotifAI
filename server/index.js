@@ -8,8 +8,6 @@ import { query } from './db.js';
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-// Configuración de rutas internas de Node para entornos de producción
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -34,18 +32,18 @@ app.post('/api/auth/register', async (req, res) => {
 
     const nuevoTenant = await query(
       `INSERT INTO tenants (nombre_entidad, email_maestro, password_hash, tipo_organizacion, plan_suscripcion, iban_facturacion, titular_cuenta) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, nombre_entidad, email_maestro, tipo_organizacion`,
+   VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, nombre_entidad, email_maestro, tipo_organizacion`,
       [nombreEntidad, email, 'password_hash_seguro', tipoOrganizacion, plan || 'trial_15_dias', banco?.iban || 'ES0000', banco?.titularCuenta || 'Sin titular']
     );
-
-    const tenantId = nuevoTenant.rows[0].id;
-
+    
+    const tenantIdReal = nuevoTenant.rows[0].id;
+    
     await query(
       `INSERT INTO entities (tenant_id, nombre, cif, direccion, metadatos_legales) 
-       VALUES ($1, $2, $3, $4, $5)`,
+   VALUES ($1, $2, $3, $4, $5)`,
       [
-        tenantId, 
-        tipoOrganizacion === 'administrador' ? `C.P. ${nombreEntidad}` : nombreEntidad, 
+        tenantIdReal, 
+        tipoOrganizacion === 'administrador' ? `C.P. ${nombreEntidad}` : nombreEntidad,
         metadatosFiscales?.cifComunidad || metadatosFiscales?.cifEmpresa || '00000000X',
         metadatosFiscales?.direccionComunidad || metadatosFiscales?.direccionEmpresa || 'Sede Principal',
         JSON.stringify(metadatosFiscales)
@@ -81,7 +79,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     const tenant = resultado.rows[0];
 
-    if (password !== tenant.password_hash && password !== '26035618') { 
+    if (password !== tenant.password_hash && password !== '26035618') {
       return res.status(401).json({ error: 'La contraseña introducida es incorrecta.' });
     }
 
@@ -105,10 +103,9 @@ app.post('/api/auth/login', async (req, res) => {
 // =========================================================================
 // ⚡ 3. INTEGRACIÓN DEL FRONTEND EN PRODUCCIÓN (Servir React de forma nativa)
 // =========================================================================
-// Express mapea y sirve la carpeta comprimida de producción que genera Vite
+
 app.use(express.static(path.join(__dirname, '../dist')));
 
-// Cualquier ruta de navegación interna (ej: /hub, /acta-ia) será devuelta al index.html de React
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../dist', 'index.html'));
 });
