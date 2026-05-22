@@ -5,8 +5,8 @@ import { ShieldCheck, Building2, Users, ArrowRight, ArrowLeft, Mail, Lock, Spark
 
 export default function Register() {
   const navigate = useNavigate();
-  const { dispatch } = useVotifaiStore() || { dispatch: () => {} };
-  
+  const { dispatch } = useVotifaiStore() || { dispatch: () => { } };
+
   const [paso, setPaso] = useState(1);
   const [tipoOrganizacion, setTipoOrganizacion] = useState('administrador');
 
@@ -48,15 +48,15 @@ export default function Register() {
         nombreEntidad: tipoOrganizacion === 'empresa' ? razonSocial : nombreComunidad,
         email,
         plan: 'trial_15_dias',
-        metadatosFiscales: tipoOrganizacion === 'empresa' 
+        metadatosFiscales: tipoOrganizacion === 'empresa'
           ? { cifEmpresa, direccionEmpresa, administradores, sector, capitalSocial, numAcciones, regimenMayoria }
           : { nombreAdminFincas, nombreComunidad, cifComunidad, direccionComunidad, nombrePresidente, totalPropiedades, recargoMora },
         banco: { titularCuenta, iban }
       };
 
       try {
-        // Disparamos la petición HTTP POST hacia el servidor Express local
-        const respuesta = await fetch('https://votifai-core-api.onrender.com', {
+        // ⚡ Al estar unificados en Render, eliminamos las URLs largas y apuntamos directo de forma relativa
+        const respuesta = await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -65,28 +65,21 @@ export default function Register() {
         const resultado = await respuesta.json();
 
         if (!respuesta.ok) {
-          alert(resultado.error || 'Fallo al procesar la inserción en pgAdmin.');
+          alert(resultado.error || 'Fallo al procesar la inserción en Neon Cloud.');
           return;
         }
 
-        // Si el servidor responde con éxito (Status 201), actualizamos el store y avanzamos
+        // Si el servidor unificado responde con éxito, actualizamos el store
         dispatch({
           type: 'REGISTRAR_ORGANIZACION',
-          payload: {
-            tipoOrganizacion,
-            nombreEntidad: tipoOrganizacion === 'empresa' ? razonSocial : nombreComunidad,
-            email,
-            plan: 'trial_15_dias',
-            metadatosFiscales: payload.metadatosFiscales,
-            banco: payload.banco
-          }
+          payload: resultado.tenant
         });
 
         navigate('/hub');
 
       } catch (error) {
-        console.error('Error de red al conectar con el backend:', error);
-        alert('Error: No se pudo conectar con el servidor backend en el puerto 3000. Verifica que node index.js esté corriendo.');
+        console.error('Error de comunicación en Render:', error);
+        alert('Fallo de red: El servidor unificado no ha podido procesar la petición HTTP.');
       }
     }
   };
@@ -94,13 +87,13 @@ export default function Register() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col lg:flex-row font-sans antialiased overflow-hidden">
-      
+
       {/* ================= COLUMNA IZQUIERDA: SERVICIOS Y MARKETING (50% de la pantalla) ================= */}
       <div className="w-full lg:w-1/2 bg-slate-900 border-b lg:border-b-0 lg:border-r border-slate-900 p-8 md:p-16 flex flex-col justify-between overflow-y-auto custom-scrollbar">
-        
+
         {/* LOGO */}
         <div className="flex items-center gap-3">
-          <button 
+          <button
             type="button"
             onClick={paso === 1 ? () => navigate('/') : () => setPaso(paso - 1)}
             className="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl transition-all text-slate-400 hover:text-white"
@@ -163,7 +156,7 @@ export default function Register() {
 
       {/* ================= COLUMNA DERECHA: FORMULARIO MULTI-PASO (50% de la pantalla) ================= */}
       <div className="w-full lg:w-1/2 p-8 md:p-16 flex flex-col justify-between overflow-y-auto custom-scrollbar bg-slate-950">
-        
+
         {/* INDICADOR DE PASOS SUPERIOR */}
         <div className="flex justify-end gap-4 text-4xs font-black uppercase tracking-widest text-slate-600 shrink-0">
           <span className={paso === 1 ? "text-blue-500 border-b border-blue-500 pb-1" : ""}>1. Credenciales</span>
@@ -173,7 +166,7 @@ export default function Register() {
 
         {/* CONTENEDOR CENTRAL DEL FORMULARIO (Estirado verticalmente por flex) */}
         <form onSubmit={handleSiguientePaso} className="my-auto py-8 space-y-6 max-w-xl mx-auto w-full">
-          
+
           <div className="space-y-1">
             <h1 className="text-xl md:text-2xl font-black text-white tracking-tight">
               {paso === 1 && "Crear Perfil Profesional"}
