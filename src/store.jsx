@@ -25,26 +25,16 @@ const generarCenso20Propietarios = () => {
 // 2. EL REDUCER CENTRAL DE ACCIONES RELACIONALES
 function votifaiReducer(state, action) {
   switch (action.type) {
-    case 'REGISTRAR_ORGANIZACION': {
-      // 🔌 El payload ahora es directamente el objeto Tenant validado y guardado por PostgreSQL
+   case 'REGISTRAR_ORGANIZACION': {
       const datosServidor = action.payload;
       
+      // 🔒 Mapeamos de forma segura para dar soporte a ambos formatos (Registro y Login)
       const nuevoTenant = {
-        tenantId: datosServidor.id,
-        nombreEntidad: datosServidor.nombre_entidad,
-        email: datosServidor.email_maestro,
-        tipoOrganizacion: datosServidor.tipo_organizacion,
-        plan: datosServidor.plan_suscripcion,
-        comunidadesYEmpresas: [
-          { 
-            id: `ent_castellana`, 
-            nombre: datosServidor.tipo_organizacion === 'administrador' ? `C.P. ${datosServidor.nombre_entidad}` : datosServidor.nombre_entidad, 
-            tipo: datosServidor.tipo_organizacion === 'administrador' ? 'comunidad' : 'empresa', 
-            ubicacion: 'Sede Central', 
-            estado: 'Junta Programada — HOY 18:00',
-            propietarios: generarCenso20Propietarios() // Acoplamos los 20 propietarios locales al Hub
-          }
-        ]
+        tenantId: datosServidor.id || datosServidor.tenantId,
+        nombreEntidad: datosServidor.nombre_entidad || datosServidor.nombreEntidad || "Despacho Profesional",
+        email: datosServidor.email_maestro || datosServidor.email,
+        tipoOrganizacion: datosServidor.tipo_organizacion || datosServidor.tipoOrganizacion,
+        plan: datosServidor.plan_suscripcion || datosServidor.plan || 'trial_15_dias'
       };
       
       localStorage.setItem('votifai_tenant', JSON.stringify(nuevoTenant));
