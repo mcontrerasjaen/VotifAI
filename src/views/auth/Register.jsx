@@ -72,7 +72,13 @@ export default function Register() {
         // Si el servidor unificado responde con éxito, actualizamos el store
         dispatch({
           type: 'REGISTRAR_ORGANIZACION',
-          payload: resultado.tenant
+          payload: {
+            id: resultado.tenant.id,
+            nombre_entidad: resultado.tenant.nombre_entidad,
+            email_maestro: resultado.tenant.email_maestro,
+            tipo_organizacion: resultado.tenant.tipo_organizacion,
+            plan_suscripcion: resultado.tenant.plan_suscripcion
+          }
         });
 
         navigate('/hub');
