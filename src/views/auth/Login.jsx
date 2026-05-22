@@ -1,35 +1,83 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ShieldCheck, KeyRound, User, Home, Building, Mail, Lock } from 'lucide-react';
+import { useVotifaiStore } from '../../store.jsx';
+import { ArrowLeft, ShieldCheck, KeyRound, User, Home, Building, Mail, Lock, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Login() {
   const { perfil } = useParams(); 
   const navigate = useNavigate();
+  const { dispatch } = useVotifaiStore() || { dispatch: () => {} };
   const esComunidad = perfil === 'comunidad';
+
+  // CONTROL DE RED EN TIEMPO REAL
+  const [cargando, setCargando] = useState(false);
+  const [errorMensaje, setErrorMensaje] = useState('');
 
   // Datos para Comunidad de Vecinos
   const [codigoJunta, setCodigoJunta] = useState('');
   const [nombreVecino, setNombreVecino] = useState('');
   const [pisoPuerta, setPisoPuerta] = useState('');
 
-  // Datos para Área Corporativa
+  // Datos para Área Corporativa / Administrador de Fincas
   const [cifEmpresa, setCifEmpresa] = useState('');
   const [emailSocio, setEmailSocio] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleSubmit = (e) => {
+  // 🔌 CONEXIÓN ASÍNCRONA REAL CON EL SERVIDOR DE RENDER Y NEON
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setErrorMensaje('');
+
     if (esComunidad) {
+      // 1. Perfil Vecinal: Sigue su flujo de acceso a la urna móvil (Fase posterior)
       console.log("Datos Vecino:", { codigoJunta, nombreVecino, pisoPuerta });
       navigate('/voto-vecino');
     } else {
-      console.log("Datos Socio:", { cifEmpresa, emailSocio, password });
-      navigate('/hub'); // Le lleva al Hub SaaS Multi-inquilino
+      // 2. Perfil Corporativo: Inicio de Sesión SaaS Real
+      setCargando(true);
+      
+      const payload = { 
+        email: emailSocio, 
+        password: password 
+      };
+
+      try {
+        // Al estar unificados en Render, apuntamos a la ruta relativa del endpoint del servidor
+        const respuesta = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const resultado = await respuesta.json();
+
+        if (!respuesta.ok) {
+          // Capturamos el aviso de error si el correo o clave fallan en Neon
+          setErrorMensaje(resultado.error || 'Credenciales de acceso incorrectas.');
+          setCargando(false);
+          return;
+        }
+
+        // 3. ÉXITO: Seteamos los datos reales devueltos por PostgreSQL en tu Store global
+        dispatch({
+          type: 'REGISTRAR_ORGANIZACION',
+          payload: resultado.tenant
+        });
+
+        // Saltamos de forma blindada al Hub de control general de carteras
+        navigate('/hub');
+
+      } catch (error) {
+        console.error('Error de red en pasarela de acceso:', error);
+        setErrorMensaje('No se pudo establecer comunicación con el servidor central de VotifAI.');
+        setCargando(false);
+      }
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col justify-center items-center p-4 antialiased">
+    <div className="min-h-screen bg-slate-900 flex flex-col justify-center items-center p-4 antialiased relative">
       
       <button 
         onClick={() => navigate('/')}
@@ -49,6 +97,18 @@ export default function Login() {
             {esComunidad ? 'Acreditación para Junta de Propietarios' : 'Identificación de Accionista o Consejero'}
           </p>
         </div>
+
+        {/* ALERTA VISUAL DE CREDENCIALES FALLIDAS */}
+        <AnimatePresence>
+          {errorMensaje && (
+            <motion.div 
+              initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }}
+              className="mx-6 mt-4 p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-3xs font-bold rounded-xl flex items-center gap-2"
+            >
+              <AlertCircle size={14} className="shrink-0" /> {errorMensaje}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           
@@ -92,7 +152,7 @@ export default function Login() {
               </div>
             </div>
           ) : (
-            /* FORMULARIO CORPORATIVO */
+            /* FORMULARIO CORPORATIVO CONECTADO A NEON */
             <div className="space-y-4">
               <div>
                 <label className="block text-3xs font-bold text-slate-400 uppercase tracking-widest mb-1.5">1. CIF de la Sociedad</label>
@@ -133,10 +193,10 @@ export default function Login() {
           )}
 
           <button
-            type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all mt-6 shadow-lg shadow-blue-600/10 active:scale-98"
+            type="submit" disabled={cargando}
+            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all mt-6 shadow-lg shadow-blue-600/10 active:scale-98 disabled:opacity-50"
           >
-            Verificar Identidad y Acceder
+            {cargando ? 'Interrogando a Neon Cloud...' : 'Verificar Identidad y Acceder'}
           </button>
         </form>
       </div>
