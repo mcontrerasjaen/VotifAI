@@ -15,8 +15,8 @@ function App() {
       <Routes>
         <Route path="/" element={<Welcome />} />
         <Route path="/login/:perfil" element={<Login />} />
-        <Route path="/register" element={<Register />} /> {/* <-- Añadimos la ruta oficial */}
-        <Route path="/hub" element={<ClientSelector />} />
+        <Route path="/register" element={<Register />} /> 
+        <Route path="/hub" element={<ClientSelector />} />       
         <Route path="/admin" element={<Dashboard />} />
         <Route path="/acta-ia" element={<MinutesAI />} />
         <Route path="/voto-vecino" element={<VoterScreen tipoUsuario="vecino" />} />

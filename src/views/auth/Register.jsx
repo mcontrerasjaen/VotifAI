@@ -178,6 +178,19 @@ export default function Register() {
               {paso === 2 && "Completa los parámetros normativos para calibrar el motor inteligente de votación."}
               {paso === 3 && "Introduce los datos bancarios. Activaremos la prueba de 15 días a coste cero."}
             </p>
+
+            {/* 🔒 ENLACE DIRECTO PARA ADMINISTRADORES YA REGISTRADOS */}
+            {paso === 1 && (
+              <p className="text-4xs text-slate-500 font-medium mt-1">
+                ¿Ya tienes una cuenta de despacho?{' '}
+                <span
+                  onClick={() => navigate('/login/corporativo')}
+                  className="text-blue-400 font-black cursor-pointer hover:underline"
+                >
+                  Iniciar Sesión Aquí
+                </span>
+              </p>
+            )}
           </div>
 
           {/* ================= CONTENIDO: PASO 1 ================= */}
