@@ -6,26 +6,56 @@ import { Building2, Search, Plus, ArrowUpRight, FolderOpen, LogOut, Users, Mail,
 
 export default function ClientSelector() {
   const navigate = useNavigate();
-  const { state, dispatch } = useVotifaiStore() || { state: { tenant: null }, dispatch: () => {} };
-  
+  const { state, dispatch } = useVotifaiStore() || { state: { tenant: null }, dispatch: () => { } };
+
   const [busqueda, setBusqueda] = useState('');
   const [nombreNuevaEntidad, setNombreNuevaEntidad] = useState('');
   const [tipoNuevaEntidad, setTipoNuevaEntidad] = useState('comunidad');
   const [mostrarModal, setMostrarModal] = useState(false);
-  
+
   const [comunidadesReales, setComunidadesReales] = useState([]);
   const [entidadSeleccionada, setEntidadSeleccionada] = useState(null);
   const [notificacionConvocatoria, setNotificacionConvocatoria] = useState(false);
   const [cargandoFincas, setCargandoFincas] = useState(true);
 
-  // 🗳️ ESTADOS INTERNOS DEL MÓDULO DE VOTO DELEGADO ANTICIPADO
   const [mostrarModalDelegar, setMostrarModalDelegar] = useState(false);
   const [vecinoIdDelegante, setVecinoIdDelegante] = useState('');
   const [representanteNombre, setRepresentanteNombre] = useState('Presidente (Voto Delegado)');
 
+  const [editandoFinca, setEditandoFinca] = useState(false);
+  const [tabActiva, setTabActiva] = useState('expediente');
+  const [editNombre, setEditNombre] = useState('');
+  const [editCif, setEditCif] = useState('');
+  const [editDireccion, setEditDireccion] = useState('');
+
+  const [editPresidente, setEditPresidente] = useState('');
+  const [editTesorero, setEditTesorero] = useState('');
+
   const tenantIdActual = state.tenant?.tenantId || state.tenant?.id;
   const adminGlobal = state.tenant?.admin;
   const nombreDespacho = adminGlobal?.despacho || state.tenant?.nombreEntidad || "Mi Despacho SaaS";
+
+ useEffect(() => {
+    if (entidadSeleccionada) {
+      setEditNombre(entidadSeleccionada.nombre || '');
+      setEditCif(entidadSeleccionada.cif || '');
+      setEditDireccion(entidadSeleccionada.direccion || '');
+      
+      // Parseamos los metadatos de cargos si vienen del servidor, si no ponemos por defecto
+      let metadatos = {};
+      if (entidadSeleccionada.metadatos_legales) {
+        try {
+          metadatos = typeof entidadSeleccionada.metadatos_legales === 'string'
+            ? JSON.parse(entidadSeleccionada.metadatos_legales)
+            : entidadSeleccionada.metadatos_legales;
+        } catch(e) { console.error(e); }
+      }
+      
+      setEditPresidente(metadatos.presidente || 'D. Manuel Contreras Jaén');
+      setEditTesorero(metadatos.tesorero || 'Dª. Carmen Ortiz Sanz');
+      setEditandoFinca(false);
+    }
+  }, [entidadSeleccionada]);
 
   useEffect(() => {
     const cargarFincasDesdeNeon = async () => {
@@ -34,19 +64,19 @@ export default function ClientSelector() {
         const respuesta = await fetch(`/api/entities/${tenantIdActual}`);
         const datosServidor = await respuesta.json();
         console.log("=== DATOS REALES DE NEON CLOUD ===", datosServidor);
-        
+
         if (respuesta.ok && datosServidor) {
           let listaFincasRAW = [];
-          
+
           if (Array.isArray(datosServidor)) {
             listaFincasRAW = datosServidor;
-          } else if (typeof datosServidor === 'object') {            
-            listaFincasRAW = datosServidor.fincas || 
-                             datosServidor.entities || 
-                             datosServidor.comunidadesYEmpresas || 
-                             datosServidor.data ||
-                             Object.values(datosServidor).find(val => Array.isArray(val)) || 
-                             [];
+          } else if (typeof datosServidor === 'object') {
+            listaFincasRAW = datosServidor.fincas ||
+              datosServidor.entities ||
+              datosServidor.comunidadesYEmpresas ||
+              datosServidor.data ||
+              Object.values(datosServidor).find(val => Array.isArray(val)) ||
+              [];
           }
 
           const fincasEstructuradas = listaFincasRAW.map(f => ({
@@ -58,25 +88,25 @@ export default function ClientSelector() {
             estado: 'Junta Programada — HOY 18:00',
             propietarios: Array.from({ length: 20 }, (_, i) => ({
               id: `vtr_${i + 1}`,
-              nombre: ["Manuel Contreras", "Carmen Ortiz", "Juan Pérez", "Ana Gómez", "Carlos Ruiz", "María José", "David León", "Laura Sanz", "Antonio López", "Elena G.", "Francisco B.", "Lucia M.", "Javier P.", "Isabel D.", "Miguel A.", "Sonia V.", "Pedro C.", "Nuria F.", "Diego R.", "Raquel H."][i] || `Vecino ${i+1}`,
+              nombre: ["Manuel Contreras", "Carmen Ortiz", "Juan Pérez", "Ana Gómez", "Carlos Ruiz", "María José", "David León", "Laura Sanz", "Antonio López", "Elena G.", "Francisco B.", "Lucia M.", "Javier P.", "Isabel D.", "Miguel A.", "Sonia V.", "Pedro C.", "Nuria F.", "Diego R.", "Raquel H."][i] || `Vecino ${i + 1}`,
               propiedad: `Piso ${Math.floor(i / 4) + 1}º${["A", "B", "C", "D"][i % 4]}`,
-              email: `vecino_${i+1}@correo.com`,
-              telefono: `+34 600 123 0${i+1}`,
+              email: `vecino_${i + 1}@correo.com`,
+              telefono: `+34 600 123 0${i + 1}`,
               coeficiente: "5.00",
               representante: null
             }))
           }));
-          
+
           setComunidadesReales(fincasEstructuradas);
-          
+
           if (fincasEstructuradas.length > 0) {
             setEntidadSeleccionada(fincasEstructuradas[0]);
           }
         }
-      } catch (error) { 
-        console.error("Fallo crítico de lectura en el catálogo:", error); 
-      } finally { 
-        setCargandoFincas(false); 
+      } catch (error) {
+        console.error("Fallo crítico de lectura en el catálogo:", error);
+      } finally {
+        setCargandoFincas(false);
       }
     };
     cargarFincasDesdeNeon();
@@ -84,12 +114,11 @@ export default function ClientSelector() {
 
   const entidadesFiltradas = comunidadesReales.filter(e => e.nombre.toLowerCase().includes(busqueda.toLowerCase()));
 
- // 🗳️ MANEJADOR PARA REGISTRAR LA REPRESENTACIÓN DE VOTO EN MEMORIA DE FORMA REACTIVA
   const handleRegistrarDelegacion = (e) => {
     e.preventDefault();
     if (!vecinoIdDelegante) return;
 
-    const censoActualizado = entidadSeleccionada.propietarios.map(v => 
+    const censoActualizado = entidadSeleccionada.propietarios.map(v =>
       v.id === vecinoIdDelegante ? { ...v, representative: representanteNombre } : v
     );
 
@@ -101,7 +130,6 @@ export default function ClientSelector() {
     setVecinoIdDelegante('');
   };
 
-  // 🏢 MANEJADOR PARA DAR DE ALTA FINCAS DIRECTAMENTE EN NEON CLOUD (POSTGRESQL)
   const handleCrearEntidad = async (e) => {
     e.preventDefault();
     if (!nombreNuevaEntidad.trim() || !tenantIdActual) return;
@@ -113,7 +141,7 @@ export default function ClientSelector() {
       direccion: 'Calle Registrada de la Finca'
     };
 
-    try {     
+    try {
       const respuesta = await fetch('/api/entities/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -122,10 +150,10 @@ export default function ClientSelector() {
 
       if (respuesta.ok) {
         setNombreNuevaEntidad('');
-        setMostrarModal(false);               
+        setMostrarModal(false);
         setCargandoFincas(true);
         const refetch = await fetch(`/api/entities/${tenantIdActual}`);
-        const nuevosDatos = await refetch.json();            
+        const nuevosDatos = await refetch.json();
         const listaFincas = Array.isArray(nuevosDatos) ? nuevosDatos : (nuevosDatos.fincas || []);
         const fincasEstructuradas = listaFincas.map(f => ({
           id: f.id,
@@ -133,7 +161,7 @@ export default function ClientSelector() {
           tipo: 'comunidad',
           direccion: f.direccion || 'Dirección Registrada',
           estado: 'Junta Programada — HOY 18:00',
-          propietarios: comunidadesReales[0]?.propietarios || [] 
+          propietarios: comunidadesReales[0]?.propietarios || []
         }));
         setComunidadesReales(fincasEstructuradas);
       }
@@ -142,10 +170,42 @@ export default function ClientSelector() {
     }
   };
 
-  // 📲 CONEXIÓN ASÍNCRONA REAL: Despachador de Convocatorias Oficiales vía WhatsApp API
+  const handleGuardarCambiosFinca = async () => {
+    if (!entidadSeleccionada) return;
+    const payload = {
+      id: entidadSeleccionada.id,
+      nombre: editNombre,
+      cif: editCif,
+      direccion: editDireccion,
+      presidente: editPresidente,
+      tesorero: editTesorero
+    };
+
+    try {
+      const respuesta = await fetch('/api/entities/update', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!respuesta.ok) return;
+      const resultado = await respuesta.json();
+
+      if (resultado.success) {
+        setEntidadSeleccionada({ 
+          ...entidadSeleccionada, 
+          nombre: editNombre, cif: editCif, direccion: editDireccion,
+          metadatos_legales: { presidente: editPresidente, tesorero: editTesorero }
+        });
+        setComunidadesReales(prev => prev.map(c => c.id === entidadSeleccionada.id ? { ...c, nombre: editNombre, cif: editCif, direccion: editDireccion, metadatos_legales: { presidente: editPresidente, tesorero: editTesorero } } : c));
+        setEditandoFinca(false);
+        alert("✓ Expediente de Gobernanza actualizado correctamente.");
+      }
+    } catch (error) { console.error(error); }
+  };
+
   const handleDispararConvocatoria = async () => {
     if (!entidadSeleccionada) return;
-    
+
     const payload = {
       fincaId: entidadSeleccionada.id,
       nombreFinca: entidadSeleccionada.nombre,
@@ -163,7 +223,7 @@ export default function ClientSelector() {
 
       if (respuesta.ok && resultado.success) {
         setNotificacionConvocatoria(true);
-        setTimeout(() => setNotificacionConvocatoria(false), 3000); // 3 segundos visible en pantalla
+        setTimeout(() => setNotificacionConvocatoria(false), 3000);
         alert(`⚡ Sistema de Notificaciones VotifAI:\n\n${resultado.mensaje}`);
       } else {
         alert(`❌ Error en la pasarela: ${resultado.error || 'No se pudo despachar la campaña.'}`);
@@ -174,11 +234,40 @@ export default function ClientSelector() {
     }
   };
 
-  
+
+
+  const handleSubirPDFOriginal = async (e) => {
+    const archivo = e.target.files[0];
+    if (!archivo || !entidadSeleccionada) return;
+
+    const lector = new FileReader();
+    lector.readAsDataURL(archivo);
+    lector.onloadend = async () => {
+      const base64Limpio = lector.result;
+
+      try {
+        const respuesta = await fetch('/api/entities/upload-pdf', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            entityId: entidadSeleccionada.id,
+            pdfBase64: base64Limpio
+          })
+        });
+
+        if (respuesta.ok) {
+          alert("✓ Documento PDF original digitalizado y sincronizado en la nube.");
+          setEntidadSeleccionada({ ...entidadSeleccionada, documento_adjunto: base64Limpio });
+        }
+      } catch (err) {
+        console.error("Fallo al subir acta original:", err);
+      }
+    };
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col h-screen overflow-hidden">
-      
+
       {/* HEADER SUPERIOR PANORÁMICO */}
       <header className="border-b border-slate-900 bg-slate-950 px-6 py-4 flex justify-between items-center shrink-0 z-50">
         <div className="flex items-center gap-3">
@@ -201,14 +290,14 @@ export default function ClientSelector() {
 
       {/* CUERPO TRES COLUMNAS PANORÁMICO */}
       <div className="flex-grow flex flex-col lg:flex-row overflow-hidden p-4 gap-4">
-        
+
         {/* COLUMNA 1: LISTADO Y FILTRADO LATERAL DE FINCAS */}
         <div className="w-full lg:flex-grow bg-slate-900/30 border border-slate-900 rounded-2xl p-4 flex flex-col h-full overflow-hidden">
           <div className="relative bg-slate-950 p-1 rounded-2xl border border-slate-900 mb-4 shrink-0">
             <Search className="absolute left-4 top-4 text-slate-500" size={16} />
             <input type="text" placeholder="Filtrar por dirección o nombre de finca..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="w-full bg-slate-900 border border-transparent rounded-xl py-2.5 pl-10 pr-4 text-xs text-slate-200 focus:outline-none" />
           </div>
-          
+
           <div className="space-y-2 overflow-y-auto flex-grow pr-1 custom-scrollbar">
             {cargandoFincas ? (
               <div className="text-center py-8 text-4xs text-slate-500 font-bold uppercase tracking-wider">Interrogando a Neon Cloud...</div>
@@ -219,8 +308,8 @@ export default function ClientSelector() {
                   <h3 className="text-xs font-bold text-white">{entidad.nombre}</h3>
                   <div className="pt-2 border-t border-slate-900 flex justify-between items-center text-4xs">
                     <span className="text-amber-400 font-bold">{entidad.estado}</span>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); navigate(`/admin/${entidad.id}`); }} 
+                    <button
+                      onClick={(e) => { e.stopPropagation(); navigate(`/admin/${entidad.id}`); }}
                       className="bg-blue-600 hover:bg-blue-500 transition-colors px-3 py-1.5 rounded-xl text-white text-5xs font-black uppercase tracking-wider shadow-md shadow-blue-600/10"
                     >
                       Entrar a Sala ➔
@@ -234,53 +323,125 @@ export default function ClientSelector() {
           </div>
         </div>
 
- {/* COLUMNA 2: EXPEDIENTE E INFORMACIÓN REAL DE LA FINCA SELECCIONADA */}
+        {/* COLUMNA 2: EXPEDIENTE E INFORMACIÓN REAL DE LA FINCA SELECCIONADA */}
         <div className="w-full lg:w-7/12 bg-slate-950/40 border border-slate-900 rounded-2xl p-5 flex flex-col h-full overflow-hidden justify-between">
           {entidadSeleccionada ? (
             <div className="flex flex-col h-full overflow-hidden justify-between">
               <div className="flex flex-col flex-grow overflow-hidden">
-                
-                {/* CABECERA DEL EXPEDIENTE */}
+
+                {/* CABECERA DEL EXPEDIENTE CON BOTÓN DE EDICIÓN EN CALIENTE */}
                 <div className="border-b border-slate-900 pb-3 flex justify-between items-center shrink-0">
                   <div>
                     <h3 className="text-xs font-black uppercase text-slate-400 flex items-center gap-1.5">
                       <Users size={14} /> Expediente y Censo de la Finca
                     </h3>
                     <p className="text-4xs text-blue-400 font-mono mt-0.5 uppercase tracking-wider">
-                      {entidadSeleccionada.nombre}
+                      {editandoFinca ? "Modificando Registro en Neon Cloud" : entidadSeleccionada.nombre}
                     </p>
                   </div>
-                  <div className="flex gap-2">
-                    {/* 🗳️ BOTÓN INTERACTIVO PARA APODERAR VOTOS ANTES DE LA JUNTA */}
-                    <button 
-                      onClick={() => setMostrarModalDelegar(true)} 
-                      className="bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 hover:text-white text-5xs font-black px-3 py-2 rounded-xl transition-colors flex items-center gap-1"
-                    >
+
+                  <div className="flex gap-2 flex-wrap items-center">
+                    {/* 📁 Botón e Input oculto para adjuntar la convocatoria real */}
+                    <label className="bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 hover:text-white text-5xs font-black px-3 py-2 rounded-xl transition-colors flex items-center gap-1 cursor-pointer shadow-sm">
+                      <Plus size={10} className="text-blue-400" /> Adjuntar PDF Original
+                      <input type="file" accept="application/pdf" onChange={handleSubirPDFOriginal} className="hidden" />
+                    </label>
+
+                    {/* ✏️ BOTÓN DE CONTROL DE EDICIÓN EN CALIENTE */}
+                    {editandoFinca ? (
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setEditandoFinca(false)}
+                          className="bg-slate-900 border border-slate-800 text-slate-400 hover:text-white text-5xs font-black px-3 py-2 rounded-xl transition-all uppercase tracking-wider"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleGuardarCambiosFinca}
+                          className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 text-5xs font-black px-3 py-2 rounded-xl transition-all uppercase tracking-wider font-bold shadow-md shadow-emerald-600/10"
+                        >
+                          💾 Guardar Cambios
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setEditandoFinca(true)}
+                        className="bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white text-5xs font-black px-3 py-2 rounded-xl transition-colors"
+                      >
+                        ✏️ Editar Datos
+                      </button>
+                    )}
+
+                    <button onClick={() => setMostrarModalDelegar(true)} className="bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 hover:text-white text-5xs font-black px-3 py-2 rounded-xl transition-colors flex items-center gap-1">
                       <UserPlus size={10} className="text-indigo-400" /> Registrar Representación
                     </button>
-                    <button 
-                      onClick={handleDispararConvocatoria} 
-                      className="bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 text-blue-400 text-5xs font-black px-3 py-2 rounded-xl transition-all"
-                    >
+
+                    <button onClick={handleDispararConvocatoria} className="bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 text-blue-400 text-5xs font-black px-3 py-2 rounded-xl transition-all">
                       Convocar por WA
                     </button>
                   </div>
                 </div>
 
-                {/* 📊 PANEL DE DATOS REALES DE NEON CLOUD (CIF, Dirección y Estado) */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 my-3 shrink-0">
-                  <div className="bg-slate-900/50 border border-slate-900 p-3 rounded-xl shadow-inner">
-                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Código CIF Legal</span>
-                    <p className="text-3xs font-mono font-bold text-slate-200 mt-1 uppercase">
-                      {entidadSeleccionada.cif || "H-00000000"}
-                    </p>
-                  </div>
-                  <div className="bg-slate-900/50 border border-slate-900 p-3 rounded-xl shadow-inner sm:col-span-2">
-                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Dirección de la Propiedad</span>
-                    <p className="text-3xs font-medium text-slate-200 mt-1 truncate">
-                      {entidadSeleccionada.direccion || "Calle no especificada en Neon"}
-                    </p>
-                  </div>
+                {/* 📊 FORMULARIO DE EDICIÓN INTERACTIVO O VISOR DE DATOS EN CALIENTE */}
+                <div className="my-3 shrink-0">
+                  {editandoFinca ? (
+                    /* ========================================================================= */
+                    /* MODO EDICIÓN ACTIVO: FORMULARIO COMPLETO CON TODOS LOS INPUTS             */
+                    /* ========================================================================= */
+                    <div className="bg-slate-900/60 border border-blue-500/30 p-4 rounded-2xl grid grid-cols-1 sm:grid-cols-3 gap-4 shadow-lg animate-fade-in">
+                      <div className="sm:col-span-3">
+                        <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Nombre Comercial de la Finca</label>
+                        <input
+                          type="text"
+                          value={editNombre}
+                          onChange={(e) => setEditNombre(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-800 focus:border-blue-500 rounded-xl py-2 px-3 text-xs text-slate-200 focus:outline-none font-bold"
+                          placeholder="Ej: C.P. Gran Vía 12"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Código CIF Legal</label>
+                        <input
+                          type="text"
+                          value={editCif}
+                          onChange={(e) => setEditCif(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-800 focus:border-blue-500 rounded-xl py-2 px-3 text-xs text-slate-200 font-mono focus:outline-none uppercase"
+                          placeholder="Ej: H-12345678"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Dirección Postal / Sede</label>
+                        <input
+                          type="text"
+                          value={editDireccion}
+                          onChange={(e) => setEditDireccion(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-800 focus:border-blue-500 rounded-xl py-2 px-3 text-xs text-slate-200 focus:outline-none"
+                          placeholder="Ej: Calle de la Gran Vía 12, Madrid"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    /* ========================================================================= */
+                    /* MODO LECTURA ESTÁNDAR: RECUADROS CORPORATIVOS DE DATOS                     */
+                    /* ========================================================================= */
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="bg-slate-900/50 border border-slate-900 p-3 rounded-xl shadow-inner">
+                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Código CIF Legal</span>
+                        <p className="text-3xs font-mono font-bold text-slate-200 mt-1 uppercase">
+                          {entidadSeleccionada.cif || "H-00000000"}
+                        </p>
+                      </div>
+                      <div className="bg-slate-900/50 border border-slate-900 p-3 rounded-xl shadow-inner sm:col-span-2">
+                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Dirección de la Propiedad</span>
+                        <p className="text-3xs font-medium text-slate-200 mt-1 truncate">
+                          {entidadSeleccionada.direccion || "Calle no especificada en Neon"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* TABLA DEL CENSO LEGAL */}
@@ -363,10 +524,10 @@ export default function ClientSelector() {
             </div>
             <div>
               <label className="block text-4xs font-bold text-slate-400 uppercase tracking-widest mb-1.5">Seleccionar Propietario Ausente</label>
-              <select 
-                required 
-                value={vecinoIdDelegante} 
-                onChange={(e) => setVecinoIdDelegante(e.target.value)} 
+              <select
+                required
+                value={vecinoIdDelegante}
+                onChange={(e) => setVecinoIdDelegante(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
               >
                 <option value="">-- Elige un vecino de la lista --</option>
@@ -377,24 +538,24 @@ export default function ClientSelector() {
             </div>
             <div>
               <label className="block text-4xs font-bold text-slate-400 uppercase tracking-widest mb-1.5">Nombre del Apoderado / Representante</label>
-              <input 
-                type="text" 
-                required 
-                value={representanteNombre} 
-                onChange={(e) => setRepresentanteNombre(e.target.value)} 
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-slate-200 focus:outline-none focus:border-blue-500" 
+              <input
+                type="text"
+                required
+                value={representanteNombre}
+                onChange={(e) => setRepresentanteNombre(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
               />
             </div>
             <div className="flex gap-2 pt-2">
-              <button 
-                type="button" 
-                onClick={() => setMostrarModalDelegar(false)} 
+              <button
+                type="button"
+                onClick={() => setMostrarModalDelegar(false)}
                 className="flex-1 bg-slate-950 text-slate-400 py-2.5 rounded-xl text-xs font-bold border border-slate-900"
               >
                 Cancelar
               </button>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-xs font-bold"
               >
                 Emitir Apoderamiento
