@@ -1,10 +1,17 @@
 import React, { createContext, useContext, useReducer } from 'react';
 
-// 1. ESTADO INICIAL COMPATIBLE CON PERSISTENCIA LOCAL
+// 1. ESTADO INICIAL COMPATIBLE CON PERSISTENCIA LOCAL (Estructura Blindada)
 const initialState = {
   tenant: (() => {
     const saved = localStorage.getItem('votifai_tenant');
-    return saved ? JSON.parse(saved) : null;
+    if (!saved) return null;
+    
+    const parsed = JSON.parse(saved);
+    // 🛡️ Aseguramos que la propiedad coleccionista de fincas siempre exista como array al arrancar
+    if (parsed && !parsed.comunidadesYEmpresas) {
+      parsed.comunidadesYEmpresas = [];
+    }
+    return parsed;
   })()
 };
 
@@ -25,16 +32,26 @@ const generarCenso20Propietarios = () => {
 // 2. EL REDUCER CENTRAL DE ACCIONES RELACIONALES
 function votifaiReducer(state, action) {
   switch (action.type) {
-   case 'REGISTRAR_ORGANIZACION': {
+    case 'REGISTRAR_ORGANIZACION': {
       const datosServidor = action.payload;
       
       // 🔒 Mapeamos de forma segura para dar soporte a ambos formatos (Registro y Login)
+      // Extraemos el nombre del Admin (administrador_nombre o lo que devuelva tu API)
       const nuevoTenant = {
         tenantId: datosServidor.id || datosServidor.tenantId,
         nombreEntidad: datosServidor.nombre_entidad || datosServidor.nombreEntidad || "Despacho Profesional",
         email: datosServidor.email_maestro || datosServidor.email,
         tipoOrganizacion: datosServidor.tipo_organizacion || datosServidor.tipoOrganizacion,
-        plan: datosServidor.plan_suscripcion || datosServidor.plan || 'trial_15_dias'
+        plan: datosServidor.plan_suscripcion || datosServidor.plan || 'trial_15_dias',
+        
+        // 🆕 Añadimos los datos específicos del Administrador para el Header
+        admin: {
+          nombre: datosServidor.admin_nombre || datosServidor.adminNombre || datosServidor.nombre || "Admin General",
+          despacho: datosServidor.nombre_entidad || datosServidor.nombreEntidad || "Despacho Administrador"
+        },
+        
+        // 💎 Inicializamos OBLIGATORIAMENTE el listado de fincas vacío si no viene del servidor
+        comunidadesYEmpresas: datosServidor.comunidadesYEmpresas || []
       };
       
       localStorage.setItem('votifai_tenant', JSON.stringify(nuevoTenant));
@@ -43,7 +60,12 @@ function votifaiReducer(state, action) {
 
     case 'AÑADIR_ENTIDAD': {
       if (!state.tenant) return state;
+      
       const nuevaEntidad = action.payload;
+      
+      // Aseguramos de forma reactiva que exista la lista antes de añadir
+      const fincasActuales = state.tenant.comunidadesYEmpresas || [];
+
       const entidadEstructurada = {
         id: `ent_${Math.random().toString(36).substr(2, 9)}`,
         nombre: nuevaEntidad.nombre,
@@ -52,10 +74,12 @@ function votifaiReducer(state, action) {
         estado: 'Creada - Sin juntas activas',
         propietarios: generarCenso20Propietarios()
       };
+      
       const tenantActualizado = {
         ...state.tenant,
-        comunidadesYEmpresas: [...state.tenant.comunidadesYEmpresas, entidadEstructurada]
+        comunidadesYEmpresas: [...fincasActuales, entidadEstructurada]
       };
+      
       localStorage.setItem('votifai_tenant', JSON.stringify(tenantActualizado));
       return { ...state, tenant: tenantActualizado };
     }

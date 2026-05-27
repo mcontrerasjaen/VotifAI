@@ -12,6 +12,14 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     allowedHosts: true,
+    // 🔗 ENLACE AL BACKEND: Redirecciona todas las peticiones /api al puerto 3000
+    proxy: {
+      '/api': {
+        target: 'https://redesigned-garbanzo-q75qxq4xjp7jh9xq-3000.app.github.dev',
+        changeOrigin: true,
+        secure: false,
+      }
+    }
   },
   optimizeDeps: {
     include: ['react-apexcharts', 'apexcharts']

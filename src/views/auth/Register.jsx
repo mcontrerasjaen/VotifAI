@@ -42,7 +42,6 @@ export default function Register() {
     if (paso < 3) {
       setPaso(paso + 1);
     } else {
-      // 📦 Estructuramos el objeto completo para enviarlo a la API de Node.js
       const payload = {
         tipoOrganizacion,
         nombreEntidad: tipoOrganizacion === 'empresa' ? razonSocial : nombreComunidad,
@@ -55,7 +54,6 @@ export default function Register() {
       };
 
       try {
-        // ⚡ Al estar unificados en Render, eliminamos las URLs largas y apuntamos directo de forma relativa
         const respuesta = await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -69,18 +67,38 @@ export default function Register() {
           return;
         }
 
-        // Si el servidor unificado responde con éxito, actualizamos el store
+        if (resultado.tenant && resultado.tenant.id) {
+          localStorage.setItem('tenantId', resultado.tenant.id);
+        } else {
+          console.error("El servidor no devolvió el objeto tenant esperado:", resultado);
+        }
+       
+        // 🔒 CONSTRUCCIÓN EXPANDIDA: Sincronizamos los datos del admin y la finca inicial
+        // para alimentar el Header y la consola maestro de forma instantánea sin perder datos.
+        const payloadSincronizado = {
+          ...resultado.tenant,
+          // Forzamos el mapeo dinámico del Administrador si la API no lo trae desglosado
+          adminNombre: tipoOrganizacion === 'administrador' ? nombreAdminFincas : razonSocial,
+          
+          // 🏢 BLINDAJE MULTITENANT: Estructuramos la finca inicial para que entre limpia al listado
+          comunidadesYEmpresas: resultado.tenant?.comunidadesYEmpresas || [
+            {
+              id: `ent_inicial_${Math.random().toString(36).substr(2, 5)}`,
+              nombre: tipoOrganizacion === 'empresa' ? razonSocial : nombreComunidad,
+              tipo: tipoOrganizacion,
+              ubicacion: tipoOrganizacion === 'empresa' ? direccionEmpresa : direccionComunidad,
+              estado: 'Creada - Esperando Convocatoria',
+              cif: tipoOrganizacion === 'empresa' ? cifEmpresa : cifComunidad,
+              direccion: tipoOrganizacion === 'empresa' ? direccionEmpresa : direccionComunidad
+            }
+          ]
+        };
+
         dispatch({
           type: 'REGISTRAR_ORGANIZACION',
-          payload: {
-            id: resultado.tenant.id,
-            nombre_entidad: resultado.tenant.nombre_entidad,
-            email_maestro: resultado.tenant.email_maestro,
-            tipo_organizacion: resultado.tenant.tipo_organizacion,
-            plan_suscripcion: resultado.tenant.plan_suscripcion
-          }
+          payload: payloadSincronizado
         });
-
+        
         navigate('/hub');
 
       } catch (error) {

@@ -5,9 +5,9 @@ import { ArrowLeft, ShieldCheck, KeyRound, User, Home, Building, Mail, Lock, Ale
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Login() {
-  const { perfil } = useParams(); 
+  const { perfil } = useParams();
   const navigate = useNavigate();
-  const { dispatch } = useVotifaiStore() || { dispatch: () => {} };
+  const { dispatch } = useVotifaiStore() || { dispatch: () => { } };
   const esComunidad = perfil === 'comunidad';
 
   // CONTROL DE RED EN TIEMPO REAL
@@ -25,25 +25,22 @@ export default function Login() {
   const [password, setPassword] = useState('');
 
   // 🔌 CONEXIÓN ASÍNCRONA REAL CON EL SERVIDOR DE RENDER Y NEON
-  const handleSubmit = async (e) => {
+   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMensaje('');
 
-    if (esComunidad) {
-      // 1. Perfil Vecinal: Sigue su flujo de acceso a la urna móvil (Fase posterior)
+    if (esComunidad) {      
       console.log("Datos Vecino:", { codigoJunta, nombreVecino, pisoPuerta });
       navigate('/voto-vecino');
-    } else {
-      // 2. Perfil Corporativo: Inicio de Sesión SaaS Real
+    } else {    
       setCargando(true);
-      
-      const payload = { 
-        email: emailSocio, 
-        password: password 
+
+      const payload = {
+        email: emailSocio,
+        password: password
       };
 
       try {
-        // Al estar unificados en Render, apuntamos a la ruta relativa del endpoint del servidor
         const respuesta = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -53,19 +50,43 @@ export default function Login() {
         const resultado = await respuesta.json();
 
         if (!respuesta.ok) {
-          // Capturamos el aviso de error si el correo o clave fallan en Neon
           setErrorMensaje(resultado.error || 'Credenciales de acceso incorrectas.');
           setCargando(false);
           return;
         }
 
-        // 3. ÉXITO: Seteamos los datos reales devueltos por PostgreSQL en tu Store global
+        // 🔒 BLINDAJE DE PERSISTENCIA MULTITENANT
+        // Creamos y formateamos el objeto que tu store.jsx sabe interceptar al arrancar
+        if (resultado.tenant) {
+          const nuevoTenantCaché = {
+            tenantId: resultado.tenant.id || resultado.tenant.tenantId,
+            nombreEntidad: resultado.tenant.nombre_entidad || resultado.tenant.nombreEntidad || "Despacho Profesional",
+            email: resultado.tenant.email_maestro || resultado.tenant.email || emailSocio,
+            tipoOrganizacion: resultado.tenant.tipo_organizacion || resultado.tenant.tipoOrganizacion || 'administrador',
+            plan: resultado.tenant.plan_suscripcion || resultado.tenant.plan || 'trial_15_dias',
+            
+            // 🆕 Mapeamos los datos del administrador para alimentar el Header del Dashboard de inmediato
+            admin: {
+              nombre: resultado.tenant.admin_nombre || resultado.tenant.adminNombre || resultado.tenant.nombre || "Admin General",
+              despacho: resultado.tenant.nombre_entidad || resultado.tenant.nombreEntidad || "Despacho Administrador"
+            },
+            
+            // Sincronizamos las fincas cargadas desde PostgreSQL para evitar el parpadeo de lista vacía
+            comunidadesYEmpresas: resultado.tenant.comunidadesYEmpresas || []
+          };
+
+          // Guardamos con la clave exacta que lee la raíz de tu arquitectura ('votifai_tenant')
+          localStorage.setItem('votifai_tenant', JSON.stringify(nuevoTenantCaché));
+          
+          // Mantenemos tu clave secundaria por si tu backend la utiliza en otras consultas
+          localStorage.setItem('tenantId', resultado.tenant.id);
+        }
+
         dispatch({
           type: 'REGISTRAR_ORGANIZACION',
           payload: resultado.tenant
         });
 
-        // Saltamos de forma blindada al Hub de control general de carteras
         navigate('/hub');
 
       } catch (error) {
@@ -78,8 +99,8 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col justify-center items-center p-4 antialiased relative">
-      
-      <button 
+
+      <button
         onClick={() => navigate('/')}
         className="absolute top-6 left-6 flex items-center gap-2 text-xs text-slate-400 hover:text-white font-bold transition-colors bg-slate-950 px-4 py-2 rounded-xl border border-slate-800"
       >
@@ -87,7 +108,7 @@ export default function Login() {
       </button>
 
       <div className="w-full max-w-md bg-slate-950 rounded-3xl shadow-2xl overflow-hidden border border-slate-800/60">
-        
+
         <div className="p-6 text-center border-b border-slate-900 bg-slate-950">
           <div className="flex justify-center items-center gap-2 mb-1">
             <ShieldCheck size={24} className="text-blue-500" />
@@ -101,7 +122,7 @@ export default function Login() {
         {/* ALERTA VISUAL DE CREDENCIALES FALLIDAS */}
         <AnimatePresence>
           {errorMensaje && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }}
               className="mx-6 mt-4 p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-3xs font-bold rounded-xl flex items-center gap-2"
             >
@@ -111,7 +132,7 @@ export default function Login() {
         </AnimatePresence>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          
+
           {esComunidad ? (
             /* FORMULARIO VECINAL */
             <div className="space-y-4">
